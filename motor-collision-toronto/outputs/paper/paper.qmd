@@ -1,0 +1,261 @@
+---
+title: "Decoding Traffic Collision Trends: The Influence of Impact Type, Road Conditions, and Time of Day on Accident Outcomes"
+subtitle: "Investigating How Collision Types and Road Conditions Affect Accident Patterns Over Time in Urban Areas"
+author: 
+  - Qingyang Feng
+thanks: "Code and data are available at: <https://github.com/Fqy10987/Motor-Collision.git>"
+date: "September 24, 2024"
+date-format: long
+abstract: "This paper explores urban traffic accidents by considering the elements of impact types, road conditions, and time of day on accident frequency and severity. Severe accidents are more likely to occur in adverse conditions such as wet and icy roads in people's mind, but the collision happens on dry road is the most commonly things. These findings highlight key areas for strengthening traffic policy, road safety and accident prevention measures in Toronto."
+format: pdf
+number-sections: true
+# The toc parameter used to create a table of contents was obtained from
+# Quarto documentation:
+# https://quarto.org/docs/reference/formats/pdf.html
+toc: true
+bibliography: references.bib
+---
+
+```{r}
+#| echo: false
+#| warning: false
+#### Preamble ####
+
+# Purpose: Generates a paper titled "Decoding Traffic Collision Trends: The
+# Influence of Impact Type, Road Conditions, and Time of Day on Accident
+# Outcomes" in PDF format when rendered.
+# Author: Qingyang Feng
+# Date: September 24, 2024
+# Contact: lingtianchenming@gmail.com
+# Pre-requisites: Run the file "00-simulate_data.R" and "02-data_cleaning.R".
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#### Loading Packages ####
+library(tidyverse)
+library(readr)
+library(here)
+library(opendatatoronto)
+library(tidyverse)
+```
+
+
+# Introduction
+According to the research, in Toronto, most of the injury caused by traffic accidents, incidents of violence, Fall accidents (especially among the elderly), and Workplace accidents. Among these accidents, the traffic accident has the highest rate of fatality[@vstr2021classification; @springer2021influence], in particular, the motor rider has the highest rate of fatality.[@OntarioMotorcycleAccidents2022; @MotorcycleSafetyOntario2022]
+
+Traffic accidents are always the biggest threat to public safety. Especialy, the motor rider, it has the fastest speed with less personal protection. These accidents always happen caused of many different elements. According to the research, rear-end collisions are the most common accidents, especially during busy hours when traffic congestion is at its highest. These kinds of incidents commonly happen on dry roads, because under the condition, riders have more confidence to ride at a high speed[@OntarioMotorcycleAccidents2022]. However, under adverse road conditions, the probability of accident will increase[@SalviMaher2022]. Understanding the relationship between the elements is significant in formulating effective safety precautions.
+
+Although the safety engineering and traffic management policy will strengthen gradually over time, the probability of motor collision accidents is still high enough[@MotorcycleSafetyOntario2022]. At busy times, the traffic density has a large increase, and the rider or driver is tired, which causes more collisions. Furthermore, bad weather causes even more uncertainty[@Corwin2018]. This case shows that it only depending on safety engineering and management policy could not completely solve the problem of traffic safety.
+
+To better provide a comprehensive analysis of the key factors influencing traffic collisions, the following will analyze the main elements that influence the number of accidents. It will focus on road conditions, time of day, injury, and impact type. This can help policymakers or traffic managers to make effective and targeted security policies or traffic management. Moreover, it can alert the rider need to put more attention to these conditions and avoid injury[@opendatatoronto].
+
+\newpage
+# Data {#sec-data}
+
+## Raw Data
+The analysis presented in this study utilizes data sourced from the City of Toronto’s traffic incident records, which are accessed via the Open Data Toronto platform. This research examines the impact of various road conditions on injury severity during incidents reported from January Jan 2006[@opendatatoronto]. The analytical procedures were conducted using 'R' [@citeR] alongside various packages, including tidyverse [@citetidyverse], lubridate [@citedate], ggplot2 [@citeggplot], here [@citehere], readr [@citereadr] and knitr [@citeknit]. 
+
+The dataset features records of incidents classified by impact type, injury severity, accident numbers, date, time, and road surface conditions. With a total of 18,957 recorded entries, the data is continuously updated to reflect recent events from Police Service, according to big data analysis, standardized reporting systems and data entry and validation[@opendatatoronto]. It allows for a detailed analysis of how different conditions, such as wet surfaces, correlate with the severity of injuries sustained during accidents. Additionally, the dataset preserves the confidentiality of involved parties by anonymizing specific identifiers.
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+
+
+# Load the raw data
+Motor_data <- read_csv(here::here("inputs/data/Motor_data.csv"))
+```
+
+## Cleaned Data
+In "02-data_cleaning" it shows that for the column it need, like, number of accident does not contain any contain data, and impact type and road condition, although they contain 'None' in the data, but if I clean it up, it will lose most of data of the accident number, it will make the analysis unaccurate. Therefore, for "02-data_cleaning" just help it to filter the column which need to use in analysis, which are date, time, accident number, impact type and road condition. To choose these column to analysis, because it can shows most of the data for other elements, like road condtion can also represent weather(almost same as visibility, light), injury can detail fatal or non-fatal(FATAL_NO) and date, impact type, time and accident number is the key element to analysis. Therefore, cleaned data is somewhere same as raw_data, then whether using "Motor_date.cvs" or "analysis_data.cvs" does not create significent differences in result.[@tbl-clean-head; @tbl-condition-table] 
+\newpage
+```{r}
+#| label: tbl-clean-head
+#| tbl-cap: Sample of cleaned lead data
+#| echo: false
+
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+library(knitr)
+# Load the cleaned data
+clean_data <- read.csv(here::here("outputs/data/analysis_data.csv"))
+
+# Summarize the data by counting incidents per date and injury severity
+summary_table <- clean_data %>%
+  group_by(DATE, INJURY) %>%
+  summarise(Count_of_Incidents = n(), .groups = "drop")
+
+# Display the first six rows of the summary table
+head(summary_table, 10) %>%
+  kable(
+    col.names = c("Date", "Injury Severity", "Count of Incidents"),
+    caption = "Summary of Injury Incidents by Date and Severity"
+  )
+```
+
+```{r}
+#| label: tbl-condition-table
+#| tbl-cap: Raw Data check table
+#| echo: false
+
+
+# Create logical checks for the required conditions
+accident_gt_0 <- any(Motor_data$ACCNUM > 0)
+impact_type_character <- is.character(Motor_data$IMPACTYPE)
+injury_character <- is.character(Motor_data$INJURY)
+min_year_2006 <- min(as.integer(format(as.Date(Motor_data$DATE), "%Y")),
+  na.rm = TRUE
+) == 2006
+max_year_2023 <- max(as.integer(format(as.Date(Motor_data$DATE), "%Y")),
+  na.rm = TRUE
+) == 2023
+
+# Create a data frame with the results
+summary_table <- data.frame(
+  Condition = c(
+    "Accident > 0", "Impact Type is Character",
+    "Injury is Character", "Min Year 2006", "Max Year 2023"
+  ),
+  Result = c(
+    accident_gt_0, impact_type_character, injury_character,
+    min_year_2006, max_year_2023
+  )
+)
+
+# Display the result table
+kable(summary_table,
+  col.names = c("Elements", "Condition(T/F)"),
+  caption = "Summary Table of Accident Conditions"
+)
+```
+
+
+
+
+\newpage
+
+# Result {#sec-data-result}
+
+## Analysis of the Number of Motor Accident Over Year
+
+```{r}
+#| label: fig-year-accident
+#| fig-cap: Histogram of Accidents per Year
+#| echo: false
+
+# Assuming your dataset is loaded into a dataframe called 'Motor_data'
+# Convert DATE to Date format and TIME to numeric
+Motor_data$DATE <- as.Date(Motor_data$DATE, format = "%Y-%m-%d")
+Motor_data$YEAR <- as.numeric(format(Motor_data$DATE, "%Y"))
+Motor_data$TIME <- as.numeric(Motor_data$TIME)
+
+# Histogram for Accidents per Year
+ggplot(Motor_data, aes(x = YEAR)) +
+  geom_histogram(binwidth = 1, fill = "orange", color = "black") +
+  labs(
+    title = "Histogram of Accidents per Year", x = "Year",
+    y = "Frequency of Accidents"
+  ) +
+  theme_minimal()
+```
+In this histogram [@fig-year-accident], it shows the frequency of number of accident from year 2006 to 2023. Which x-axis represent year, and y-axis represented the frequency of the accident of motor. Through the graph, we can clear see that the trend of number of accident is decreasing over year. In 2006 to 2010, it have the largest number of accident. We can clearly know that the traffic management policy and Road safety measures advance over year. 
+
+
+
+\newpage
+## Analysis of the Number of Accidents by Hour of Day and Road Condition
+```{r}
+#| label: fig-hours-accident
+#| fig-cap: Number of Accidents by Hour of Day and Road Condition
+#| echo: false
+# second plot
+# Convert TIME to numeric and extract HOUR (assuming TIME is in HHMM or similar
+# format)
+Motor_data$TIME <- as.numeric(Motor_data$TIME) # Ensure TIME is numeric
+Motor_data$HOUR <- floor(Motor_data$TIME / 100) # Extract the hour portion
+
+# Group data by HOUR and RDSFCOND (Road Condition)
+road_condition_per_hour <- Motor_data %>%
+  group_by(HOUR, RDSFCOND) %>%
+  summarise(accident_count = n(), .groups = "drop")
+
+# Plot the line graph for Accidents by Hour of Day and Road Condition
+ggplot(road_condition_per_hour, aes(
+  x = HOUR, y = accident_count,
+  color = RDSFCOND
+)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    title = "Number of Accidents by Hour of Day and Road Condition",
+    x = "Hour of the Day", y = "Number of Accidents"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8)
+  )
+```
+In this line graph [@fig-hours-accident], it shows under different road condition, the number of accident happens in every hours a day. The data is grouped by the hour and road condition (RDSFCOND), and the graph uses color to differentiate between road conditions such as dry, wet, or icy.The X-axis represents the time of day, while the Y-axis represents the number of accidents.
+From the graph we can know that from 15:00 to 19:00 the number of accident is the highest in a day, which reach a peak from 20:00 to 4:00 whatever any road condition the number of accident is large compare to other time besides 15:00 to 19:00. Especially, when road is dry and spilled liquid.
+
+
+\newpage
+## Analysis of the Number of Accidents by Injury Status and Impact Type
+```{r}
+#| label: fig-injury-impact
+#| fig-cap: Number of Accidents by Injury Status and Impact Type
+#| echo: false
+# third plot
+
+injury_vs_impact_type <- Motor_data %>%
+  group_by(INJURY, IMPACTYPE) %>%
+  summarise(accident_count = n(), .groups = "drop") # Adding .groups argument
+
+# Create a stacked bar chart
+ggplot(injury_vs_impact_type, aes(
+  x = IMPACTYPE, y = accident_count,
+  fill = INJURY
+)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Number of Accidents by Injury Status and Impact Type",
+    x = "Impact Type", y = "Number of Accidents"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_brewer(palette = "Set3") # You can choose different color palettes
+```
+This plot [@fig-injury-impact] shows the distribution of accidents based on both the type of collision and the injury severity. Pedestrian collision have the highest number of accidents overall, but they tend to result in fewer serious injuries, mostly causing no injuries or minor ones. This makes pedestrian collision the most frequent but generally less severe. In contrast, turning movement is the second highest number of accident due to total accident count besides pedestrian collision.
+
+\newpage
+
+# Discussion
+In @sec-data-result, it analysis three graph, which is about the relationship between year and motor accident number, time of day and motor accident number with road condition, and injury and impact type with motor accident number. It shows the number of accident is decreasing over year[@fig-year-accident], from 10:00 to 20:00 which is the busy time in traffic of a day have the highest number of accident, especially when road is dry or with spilled water[@fig-hours-accident], and None, major and fatal are the main injury in motor collision, especially cause pedestrian collisions. Turning movement, angle, cyclist collision, rear end and SMV other are other main reasons[@fig-injury-impact].
+
+All three of these results have a same origins, the safety measurements and traffic manage policy are not completely well-formed, although in the first graph[@fig-year-accident] implies that from 2006 to 2007, 2013 to 2014 and 2019 to 2020, the policy has a large strengthened. Another main reason is people do not care too much about the element which cause collision of motor vehicle and like to ride in a high speed on a good weather.[@NTSB2018; @IIHS2022] From the analysis in the second graph[@fig-hours-accident], it implies that people like to ride a motor in a good weather, so the most of accident happen on a dry road and at busy times of day, which the rider want to catch up a emergency event or feel relax. [@OntarioMotorcycleAccidents2022, @MotorcycleSafetyOntario2022], for the road with spilled water(raining or other weather), motor's wheel has less friction with road, which also cause a large number of accident.[@SalviMaher2022, @Corwin2018] For other condition of road, motor almost do not have accident. Other then those reasons, rider need to concerned more about the danger that may be coming soon. This is the main purpose that the third graph[@fig-injury-impact] want to express.
+
+In summary, the frequency and severity of motorcycle accidents are related to multiple factors, including road conditions, time, and driving behavior. By thoroughly analyzing these factors, we can better understand the complexity of traffic safety and take necessary measures to improve the current situation. For policy manager and policy, this graph is important to help them to pay more attention at the busy time and when road is under a bad condition[@NTSB2018; @IIHS2022]. Moreover, to strengthen the policy about the speed of motor in city. Urban planners can use this data to optimize traffic signal placements, add pedestrian crossing facilities, or improve road designs to reduce accident rates and enhance driving safety[@OntarioMotorcycleAccidents2022]. These data analysis also can be use on education and training, which face to motor vehicle rider to let them know the value of life and different status of dangerous under different condition.[@Corwin2018; @MotorcycleAccidentResource2016] Especially, emphasizing safe driving behavior in specific situations.[@IIHS2022]
+
+Whether a Paper is importance or valuable, it shows how it can influence in the society. If more people read, it will decrease the accident number. More people can start to reflect the behaviour they have done before, or even the transport agency can organized community acitivity to let more people to know the important of that.[@NTSB2018; @Corwin2018]
+
+In conclusion, this analysis emphasizes the importance of understanding motorcycle safety to effectively reduce accidents and promote responsible riding behavior. By addressing specific factors that contribute to motorcycle incidents—such as road conditions, time of day, and rider behavior—communities can take concrete steps toward creating safer environments for all road users. Focusing on public education, improving infrastructure, and implementing informed policy decisions are crucial for fostering a culture of safety and awareness among drivers and riders alike.[@IIHS2022; @MotorcycleAccidentResource2016]
+
+
+# Limitation
+This analysis of traffic collision data have several important limitations. Firstly, the dataset includes all traffic incidents where individuals were either killed or seriously injured (KSI) since 2006[@NTSB2018; @IIHS2022]. However, the specific locations of these events have been changed to protect the privacy of those involved.[@MotorcycleAccidentResource2016] As a result, the numbers reported by division and neighborhood may not accurately reflect the true occurrences within those areas.[@OntarioMotorcycleAccidents2022; @Corwin2018]
+
+Moreover, the Toronto Police Service does not guarantee the accuracy and completeness of the data. This means that the dataset should not be compared to other sources of crime data, as variations in data collection and reporting methods can lead to discrepancies. Thus, while this analysis offers valuable insights into traffic safety trends, it’s crucial to keep these limitations in mind when interpreting the findings and drawing conclusions. [@IIHS2022; @OntarioMotorcycleAccidents2022]
+
+Future research should focus on improving data accuracy by implementing more comprehensive reporting methods, ensuring that the specifics of location and incident types are clearly maintained. One promising avenue is to leverage advanced technologies like geospatial analysis and machine learning algorithms[@IIHS2022]. These tools can enhance data collection processes and provide deeper insights into traffic patterns, helping to inform better safety strategies.
+
+Additionally, collaboration with key stakeholders—including local communities, law enforcement, and public health officials—will be vital in gathering more detailed information about the circumstances surrounding traffic incidents. This collaborative approach can lead to a more nuanced understanding of the various factors that contribute to accidents, ultimately enabling the development of targeted interventions aimed at improving traffic safety.[@NTSB2018; @IIHS2022]
+\newpage
+
+# References
+
+
